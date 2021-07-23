@@ -35,10 +35,15 @@ HOSTNAME = os.environ.get('HOSTNAME', 'localhost')
 if HOSTNAME:
     ALLOWED_HOSTS.append(HOSTNAME)
 
+INTERNAL_IPS = [
+    '127.0.0.1'
+]
 
 # Application definition
 
 INSTALLED_APPS = [
+    'bootstrap4',
+    'debug_toolbar',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -52,6 +57,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -66,7 +72,7 @@ ROOT_URLCONF = 'server.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -137,9 +143,14 @@ CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:16379/0')
 CELERY_RESULT_BACKEND = 'django-db'
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
+
 HTTP_TIMEOUT = 5  # seconds
 
+CANONICAL_URL = os.environ.get('CANONICAL_URL', '').strip()
+CANONICAL_TOKEN = os.environ.get('CANONICAL_TOKEN', '').strip()
+BLOCKSET_URL = os.environ.get('BLOCKSET_URL', '').strip()
 BLOCKSET_TOKEN = os.environ.get('BLOCKSET_TOKEN', '').strip()
+INFURA_PROJECT_ID = os.environ.get('INFURA_PROJECT_ID', '').strip()
 
 sentry_sdk.init(
     dsn=os.environ.get('SENTRY_DSN', ''),

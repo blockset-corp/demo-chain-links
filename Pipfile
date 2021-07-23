@@ -4,9 +4,13 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+celery-singleton = "*"
 dj-database-url = "*"
+django-bootstrap4 = "*"
 django-celery-beat = "*"
 django-celery-results = "*"
+django-debug-toolbar = "*"
+gunicorn = "*"
 psycopg2 = "*"
 redis = "*"
 requests = "*"

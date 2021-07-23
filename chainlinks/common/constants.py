@@ -1,0 +1,36 @@
+from datetime import timedelta
+
+
+CHAIN_CHECK_EXPIRY = timedelta(minutes=5)
+
+
+GOOD_STATUS_CODES = (200,)
+
+
+SERVICE_ID_CANONICAL = 'canonical'
+SERVICE_ID_BLOCKSET = 'blockset'
+SERVICE_ID_INFURA = 'infura'
+
+
+BLOCKCHAIN_ID_BITCOIN_MAINNET = 'bitcoin-mainnet'
+BLOCKCHAIN_ID_BITCOIN_TESTNET = 'bitcoin-testnet'
+BLOCKCHAIN_ID_BITCOINCASH_MAINNET = 'bitcoincash-mainnet'
+BLOCKCHAIN_ID_BITCOINCASH_TESTNET = 'bitcoincash-testnet'
+BLOCKCHAIN_ID_BITCOINSV_MAINNET = 'bitcoinsv-mainnet'
+BLOCKCHAIN_ID_DOGECOIN_MAINNET = 'dogecoin-mainnet'
+BLOCKCHAIN_ID_LITECOIN_MAINNET = 'litecoin-mainnet'
+BLOCKCHAIN_ID_HEDERA_MAINNET = 'hedera-mainnet'
+BLOCKCHAIN_ID_RIPPLE_MAINNET = 'ripple-mainnet'
+BLOCKCHAIN_ID_TEZOS_MAINNET = 'tezos-mainnet'
+BLOCKCHAIN_ID_ETHEREUM_MAINNET = 'ethereum-mainnet'
+BLOCKCHAIN_ID_ETHEREUM_ROPSTEN = 'ethereum-ropsten'
+
+
+RESULT_STATUS_PEND = 'pd'
+RESULT_STATUS_GOOD = 'gd'
+RESULT_STATUS_BAD = 'bd'
+RESULT_STATUS_FAIL = 'fl'
+
+
+UNKNOWN_TXN_COUNT = -1
+UNKNOWN_HASH_VALUE = ''
