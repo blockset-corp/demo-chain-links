@@ -140,6 +140,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 CELERY_TIMEZONE = 'Europe/London'
 ENABLE_UTC = True
 CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:16379/0')
+CELERY_SINGLETON_BACKEND_URL = os.environ.get('CELERY_SINGLETON_BACKEND_URL', CELERY_BROKER_URL)
 CELERY_RESULT_BACKEND = 'django-db'
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
