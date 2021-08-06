@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 celery-singleton = "*"
+certifi = "*"
 dj-database-url = "*"
 django-bootstrap4 = "*"
 django-celery-beat = "*"
