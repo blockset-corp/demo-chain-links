@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from django.utils import timezone
+from sentry_sdk import push_scope, capture_message
 
 from chainlinks.common.constants import CHAIN_CHECK_EXPIRY, RESULT_STATUS_FAIL
 from chainlinks.common.constants import GOOD_STATUS_CODES, UNKNOWN_HASH_VALUE, UNKNOWN_TXN_COUNT
@@ -98,29 +99,39 @@ class ChainCheckEngine:
         canonical_chainsource = get_chainsource(SERVICE_ID_CANONICAL, blockchain_id)
         service_chainsource = get_chainsource(service_id, blockchain_id)
 
+        # fetch block from canonical and service block and compare
         service_block = service_chainsource.get_block(block_height)
         canonical_block = canonical_chainsource.get_block(block_height)
+        status = self.compare_blocks(canonical_block, service_block)
+        completed = timezone.now()
 
+        # create a record of our fetch
         fetch = ChainBlockFetch.objects.create(
             job_id=job_pk,
             block_id = result_pk,
 
-            canonical_http_status = canonical_block.status,
+            canonical_http_status=canonical_block.status,
             canonical_block_hash=canonical_block.hash or UNKNOWN_HASH_VALUE,
             canonical_prev_hash=canonical_block.prev_hash or UNKNOWN_HASH_VALUE,
             canonical_txn_count=canonical_block.txn_count or UNKNOWN_TXN_COUNT,
 
-            service_http_status = service_block.status,
+            service_http_status=service_block.status,
             service_block_hash=service_block.hash or UNKNOWN_HASH_VALUE,
             service_prev_hash=service_block.prev_hash or UNKNOWN_HASH_VALUE,
             service_txn_count=service_block.txn_count or UNKNOWN_TXN_COUNT,
         )
 
-        result = ChainBlock.objects.get(pk=result_pk)
-        result.completed = timezone.now()
-        result.status = self.compare_blocks(canonical_block, service_block)
-        result.fetch = fetch
-        result.save()
+        # update the block to point to our result as the latest fetch
+        ChainBlock.objects.filter(pk=result_pk).update(
+            completed=completed,
+            status=status,
+            fetch=fetch
+        )
+
+        # report to Sentry on failure
+        if RESULT_STATUS_GOOD != status:
+            self.report_error(blockchain_id, block_height, service_id, status, fetch)
+
         return result_pk
 
     def create_chain_check_block_result(self, job: int, block_height: int):
@@ -150,3 +161,27 @@ class ChainCheckEngine:
             canonical_block.height != service_block.height or
             canonical_block.txn_count != service_block.txn_count
         ) else RESULT_STATUS_GOOD
+
+    def report_error(self, blockchain_id: str, block_height: int, service_id: str, status: str, fetch: ChainBlockFetch):
+        with push_scope() as sentry_scope:
+            sentry_scope.set_tag('job_id', fetch.job_id)
+            sentry_scope.set_tag('block_id', fetch.block_id)
+            sentry_scope.set_tag('block_outcome', status)
+            sentry_scope.set_tag('service_id', service_id)
+            sentry_scope.set_tag('blockchain_id', blockchain_id)
+            sentry_scope.set_context('block_info', {
+                'block_height': block_height,
+            })
+            sentry_scope.set_context('canonical_block', {
+                'http_status': fetch.canonical_http_status,
+                'block_hash': fetch.canonical_block_hash,
+                'prev_hash': fetch.canonical_prev_hash,
+                'txn_count': fetch.canonical_txn_count,
+            })
+            sentry_scope.set_context('service_block', {
+                'http_status': fetch.service_http_status,
+                'block_hash': fetch.service_block_hash,
+                'prev_hash': fetch.service_prev_hash,
+                'txn_count': fetch.service_txn_count,
+            })
+            capture_message(f'Block error for {blockchain_id} at {block_height} for {service_id}: {fetch.error_message}', level='error')

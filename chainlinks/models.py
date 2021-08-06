@@ -94,6 +94,14 @@ class ChainBlock(models.Model):
             models.Index(fields=('-block_height',), name='cb_block_height'),
         ]
 
+    def status_message(self):
+        return {
+            RESULT_STATUS_PEND: 'Pending',
+            RESULT_STATUS_GOOD: 'Success',
+            RESULT_STATUS_BAD: 'Comparison Failure',
+            RESULT_STATUS_FAIL: 'Internal Failure',
+        }[self.status]
+
     def __str__(self):
         return f'{self.job} - {self.block_height}'
 
@@ -118,6 +126,31 @@ class ChainBlockFetch(models.Model):
     service_block_hash = models.CharField(max_length=MAX_LEN_BLOCK_HASH)
     service_prev_hash = models.CharField(max_length=MAX_LEN_BLOCK_HASH)
     service_txn_count = models.IntegerField()
+
+    @property
+    def error_message(self):
+        if self.canonical_http_status not in GOOD_STATUS_CODES:
+            return 'Failed to get canonical block'
+
+        if self.service_http_status not in GOOD_STATUS_CODES:
+            return 'Failed to get service block'
+
+        reasons = list()
+
+        if self.canonical_block_hash != self.service_block_hash:
+            reasons.append(f'hash mismatch')
+
+        if self.canonical_prev_hash != self.service_prev_hash:
+            reasons.append(f'previous hash mismatch')
+
+        if self.canonical_txn_count > self.service_txn_count:
+            reasons.append(f'too few transactions')
+
+        if self.canonical_txn_count < self.service_txn_count:
+            reasons.append(f'too many transactions')
+
+        return 'Failed with ' + ','.join(reasons) if reasons else ''
+
 
     def __str__(self):
         return f'{self.block}'
