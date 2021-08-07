@@ -57,6 +57,10 @@ class ChainBlockQuerySet(models.QuerySet):
             if start_inclusive != min_block_height:
                 yield (start_inclusive, min_block_height - 1)
 
+            # iterate through trailing gap
+            if end_inclusive != max_block_height:
+                yield (max_block_height + 1, end_inclusive)
+
             # find actual gaps
             with connection.cursor() as cursor:
                 cursor.execute(f'''
@@ -69,10 +73,6 @@ class ChainBlockQuerySet(models.QuerySet):
                 ''', [job_pk, start_inclusive, end_inclusive])
                 for gap_start, gap_end in cursor:
                     yield (gap_start, gap_end)
-
-            # iterate through trailing gap
-            if end_inclusive != max_block_height:
-                yield (max_block_height + 1, end_inclusive)
 
     def find_all_gap_heights(self, job_pk: Any, start_inclusive: int, end_inclusive: int, limit: int):
         def _find_all_gap_heights():
