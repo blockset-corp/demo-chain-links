@@ -172,16 +172,24 @@ class ServiceChainSummaryJsonView:
 
     def view_get(self, request, job_id: int):
         job = get_object_or_404(ChainJob, pk=job_id)
-        results = ChainBlock.objects.find_all_islands(
-            job.id, job.start_height, job.end_height, [RESULT_STATUS_BAD, RESULT_STATUS_FAIL]
-        )
         return JsonResponse({
-            'errors': [
+            'bad_ranges': [
                 {
                     'blockchain_id': job.blockchain_id,
                     'block_start': result_start,
                     'block_end': result_end,
-                } for _, result_start, result_end in results
+                } for _, result_start, result_end in ChainBlock.objects.find_all_islands(
+                    job.id, job.start_height, job.end_height, [RESULT_STATUS_BAD]
+                )
+            ],
+            'fail_ranges': [
+                {
+                    'blockchain_id': job.blockchain_id,
+                    'block_start': result_start,
+                    'block_end': result_end,
+                } for _, result_start, result_end in ChainBlock.objects.find_all_islands(
+                    job.id, job.start_height, job.end_height, [RESULT_STATUS_FAIL]
+                )
             ]
         })
 
