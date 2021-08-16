@@ -1,9 +1,3 @@
-from datetime import timedelta
-
-
-CHAIN_CHECK_EXPIRY = timedelta(minutes=5)
-
-
 GOOD_STATUS_CODES = (200,)
 
 

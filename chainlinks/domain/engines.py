@@ -5,7 +5,7 @@ from typing import Any
 from django.utils import timezone
 from sentry_sdk import push_scope, capture_message
 
-from chainlinks.common.constants import CHAIN_CHECK_EXPIRY, RESULT_STATUS_FAIL
+from chainlinks.common.constants import RESULT_STATUS_FAIL
 from chainlinks.common.constants import GOOD_STATUS_CODES, UNKNOWN_HASH_VALUE, UNKNOWN_TXN_COUNT
 from chainlinks.common.constants import SERVICE_ID_CANONICAL
 from chainlinks.domain.chainsources import Block, get_chainsource
@@ -32,7 +32,7 @@ class ChainCheckAllEngine:
 
 class ChainCheckEngine:
 
-    def __init__(self, block_scheduler, requeue_timedelta: timedelta = CHAIN_CHECK_EXPIRY) -> None:
+    def __init__(self, block_scheduler, requeue_timedelta: timedelta) -> None:
         self.block_scheduler = block_scheduler
         self.requeue_timedelta = requeue_timedelta
 
