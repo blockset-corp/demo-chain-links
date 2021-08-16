@@ -32,11 +32,13 @@ class ChainCheckAllEngine:
 
 class ChainCheckEngine:
 
-    def __init__(self, block_scheduler, requeue_timedelta: timedelta) -> None:
+    def __init__(self, block_scheduler, requeue_timedelta: timedelta, retry_timedelta: timedelta) -> None:
         self.block_scheduler = block_scheduler
         self.requeue_timedelta = requeue_timedelta
+        self.retry_timedelta = retry_timedelta
 
     def check_chain(self, job_pk: Any):
+        now = timezone.now()
         job = ChainJob.objects.get(pk=job_pk)
 
         # Get the job details
@@ -60,17 +62,17 @@ class ChainCheckEngine:
             f"for job_id={job_pk} and blockchain_id={blockchain_id}")
 
         # Get the current inflight requests
-        inflight_blocks = ChainBlock.objects.find_all_inflight_blocks(job_pk, start_height, final_height, inflight_max)
-        inflight_capacity = max(0, inflight_max - len(inflight_blocks))
-        logger.info(f'Inflight inflights={len(inflight_blocks)}, capacity={inflight_capacity} for job_id={job_pk} and blockchain_id={blockchain_id}')
+        inflight_blocks = ChainBlock.objects.count_pending_blocks(job_pk, start_height, final_height)
+        inflight_capacity = max(0, inflight_max - inflight_blocks)
+        logger.info(f'Inflight inflights={inflight_blocks}, capacity={inflight_capacity} for job_id={job_pk} and blockchain_id={blockchain_id}')
 
         # Find heights that have not completed and are candidates for requeueing
 
-        requeue_results = [x for x in inflight_blocks if (x.scheduled + self.requeue_timedelta) < timezone.now()][:inflight_max]
-        logger.info(f'Found req_count={len(requeue_results)} for job_id={job_pk} and blockchain_id={blockchain_id}')
+        requeue_results = [x for x in ChainBlock.objects.find_all_pending_blocks(job_pk, start_height, final_height, inflight_capacity, now - self.requeue_timedelta)]
+        logger.info(f'Found requeue_count={len(requeue_results)} for job_id={job_pk} and blockchain_id={blockchain_id}')
 
         ChainBlock.objects.bulk_update([self.reset_chain_check_block_result(
-            result
+            now, result
         ) for result in requeue_results], fields=('status', 'scheduled', 'completed', 'fetch'))
 
         for result in requeue_results:
@@ -88,11 +90,29 @@ class ChainCheckEngine:
         logger.info(f'Found gap_count={len(missing_heights)} for job_id={job_pk} and blockchain_id={blockchain_id}')
 
         missing_results = ChainBlock.objects.bulk_create([self.create_chain_check_block_result(
-                job, height
+            now, job, height
         ) for height in missing_heights])
 
         for result in missing_results:
             logger.info(f'Queueing height={result.block_height} for job_id={job_pk} and blockchain_id={blockchain_id} due to gap')
+            self.block_scheduler(args=(job.pk, result.pk, blockchain_id, result.block_height, service_id))
+
+        # Check if there is room to continue on
+        inflight_capacity = max(0, inflight_capacity - len(missing_results))
+        if inflight_capacity == 0:
+            return
+
+        # Find heights that were unsuccessful and should be retried
+
+        retry_heights = [x for x in ChainBlock.objects.find_all_unsuccessful_blocks(job_pk, start_height, final_height, inflight_capacity, now - self.retry_timedelta)]
+        logger.info(f'Found retry_count={len(retry_heights)} for job_id={job_pk} and blockchain_id={blockchain_id}')
+
+        ChainBlock.objects.bulk_update([self.reset_chain_check_block_result(
+            now, result
+        ) for result in retry_heights], fields=('status', 'scheduled', 'completed', 'fetch'))
+
+        for result in retry_heights:
+            logger.info(f'Queueing height={result.block_height} for job_id={job_pk} and blockchain_id={blockchain_id} due to retry')
             self.block_scheduler(args=(job.pk, result.pk, blockchain_id, result.block_height, service_id))
 
     def check_block(self, job_pk: Any, result_pk: Any, blockchain_id: str, block_height: int, service_id: str):
@@ -134,18 +154,18 @@ class ChainCheckEngine:
 
         return result_pk
 
-    def create_chain_check_block_result(self, job: int, block_height: int):
+    def create_chain_check_block_result(self, now: datetime, job: int, block_height: int):
         return ChainBlock(
             job=job,
-            scheduled=timezone.now(),
+            scheduled=now,
             block_height=block_height,
             status = RESULT_STATUS_PEND,
             completed = datetime.utcfromtimestamp(0).replace(tzinfo=timezone.utc),
             fetch = None
         )
 
-    def reset_chain_check_block_result(self, result: ChainBlock):
-        result.scheduled = timezone.now()
+    def reset_chain_check_block_result(self, now: datetime, result: ChainBlock):
+        result.scheduled = now
         result.status = RESULT_STATUS_PEND
         result.completed = datetime.utcfromtimestamp(0).replace(tzinfo=timezone.utc)
         result.fetch = None

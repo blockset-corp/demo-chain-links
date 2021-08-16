@@ -1,9 +1,10 @@
+from datetime import datetime
 import itertools
 from typing import Any, List
 
 from django.db import connection, models
 
-from chainlinks.common.constants import RESULT_STATUS_PEND
+from chainlinks.common.constants import RESULT_STATUS_PEND, RESULT_STATUS_BAD, RESULT_STATUS_FAIL
 
 
 
@@ -81,12 +82,30 @@ class ChainBlockQuerySet(models.QuerySet):
                     yield gap_index
         yield from itertools.islice(_find_all_gap_heights(), limit)
 
-    def find_all_inflight_blocks(self, job_pk: Any, start_inclusive: int, end_inclusive: int, limit: int):
+    def count_pending_blocks(self, job_pk: Any, start_inclusive: int, end_inclusive: int):
         return self.filter(
             job=job_pk,
             status=RESULT_STATUS_PEND,
             block_height__gte=start_inclusive,
             block_height__lte=end_inclusive,
+        ).count()
+
+    def find_all_unsuccessful_blocks(self, job_pk: Any, start_inclusive: int, end_inclusive: int, limit: int, completed_before: datetime):
+        return self.filter(
+            job=job_pk,
+            status__in=(RESULT_STATUS_BAD, RESULT_STATUS_FAIL),
+            block_height__gte=start_inclusive,
+            block_height__lte=end_inclusive,
+            completed__lte=completed_before,
+        ).order_by('block_height')[:limit]
+
+    def find_all_pending_blocks(self, job_pk: Any, start_inclusive: int, end_inclusive: int, limit: int, scheduled_before: datetime):
+        return self.filter(
+            job=job_pk,
+            status=RESULT_STATUS_PEND,
+            block_height__gte=start_inclusive,
+            block_height__lte=end_inclusive,
+            scheduled__lte=scheduled_before,
         ).order_by('block_height')[:limit]
 
     def find_min_block_height(self, job_pk: Any, start_inclusive: int, end_inclusive: int):

@@ -10,11 +10,12 @@ from chainlinks.domain.engines import ChainCheckAllEngine, ChainCheckEngine
 
 CHAIN_CHECK_ALL_EXPIRY = timedelta(minutes=1)
 CHAIN_CHECK_JOB_EXPIRY = timedelta(minutes=5)
+CHAIN_CHECK_JOB_RETRY = timedelta(hours=12)
 
 
 logger = get_task_logger('app.tasks')
 check_all_engine = ChainCheckAllEngine(signature('chainlinks.tasks.run_check_job').apply_async)
-check_single_engine = ChainCheckEngine(signature('chainlinks.tasks.run_check_height').apply_async, CHAIN_CHECK_JOB_EXPIRY)
+check_single_engine = ChainCheckEngine(signature('chainlinks.tasks.run_check_height').apply_async, CHAIN_CHECK_JOB_EXPIRY, CHAIN_CHECK_JOB_RETRY)
 
 
 # Tasks
