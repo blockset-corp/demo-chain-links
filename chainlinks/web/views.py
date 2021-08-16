@@ -25,7 +25,7 @@ class ServiceChainView:
         errors_paginator = Paginator(ChainBlock.objects.filter(
             job = job,
             status__in=(RESULT_STATUS_BAD, RESULT_STATUS_FAIL)
-        ).select_related('fetch').order_by('block_height'), 15)
+        ).select_related('fetch').order_by('-block_height'), 15)
 
         jobs = (job,)
         return render(
