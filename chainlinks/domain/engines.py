@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from django.utils import timezone
+from gevent import spawn
 from sentry_sdk import push_scope, capture_message
 
 from chainlinks.common.constants import RESULT_STATUS_FAIL
@@ -119,9 +120,13 @@ class ChainCheckEngine:
         canonical_chainsource = get_chainsource(SERVICE_ID_CANONICAL, blockchain_id)
         service_chainsource = get_chainsource(service_id, blockchain_id)
 
-        # fetch block from canonical and service block and compare
-        service_block = service_chainsource.get_block(block_height)
-        canonical_block = canonical_chainsource.get_block(block_height)
+        # fetch block from canonical and service block (in parallel using greenlets)
+        service_block_greenlet = spawn(service_chainsource.get_block, block_height)
+        canonical_block_greenlet = spawn(canonical_chainsource.get_block, block_height)
+        service_block = service_block_greenlet.get()
+        canonical_block = canonical_block_greenlet.get()
+
+        # compare the results
         status = self.compare_blocks(canonical_block, service_block)
         completed = timezone.now()
 
