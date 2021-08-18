@@ -71,7 +71,7 @@ class ServiceChainView:
 
 class ServiceChainMatrixJsonView:
 
-    CHART_ROWS_COUNT_MAX = 20
+    CHART_ROWS_COUNT_MAX = 50
     CHART_COLUMN_COUNT = 10
     CHAIN_HEIGHT_CACHE_TIMEOUT_S = 10
 
