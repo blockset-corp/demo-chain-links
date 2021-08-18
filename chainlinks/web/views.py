@@ -71,6 +71,7 @@ class ServiceChainView:
 
 class ServiceChainMatrixJsonView:
 
+    CHART_ROWS_COUNT_MAX = 20
     CHART_COLUMN_COUNT = 10
     CHAIN_HEIGHT_CACHE_TIMEOUT_S = 10
 
@@ -130,7 +131,7 @@ class ServiceChainMatrixJsonView:
         step = 1
         heights = math.ceil(height_delta / columns)
         while True:
-            if (math.ceil(heights / step) < 15):
+            if (math.ceil(heights / step) < ServiceChainMatrixJsonView.CHART_ROWS_COUNT_MAX):
                 return step
             step = step * 10
 

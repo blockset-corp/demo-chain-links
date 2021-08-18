@@ -27,7 +27,7 @@ function serviceChainGraph(canvasId, data) {
         },
         options: {
             animation: false,
-            aspectRatio: 5,
+            aspectRatio: 4,
             plugins: {
                 legend: false,
                 tooltip: {
