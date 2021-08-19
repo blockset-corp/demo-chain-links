@@ -9,9 +9,10 @@ from chainlinks.common.constants import BLOCKCHAIN_ID_ETHEREUM_MAINNET, BLOCKCHA
 
 RETRY_STATUS_CODES = (404, 429, 500,)
 
-CONNECTION_POOL_SIZE=200
+CONNECTION_POOL_COUNT=20
+CONNECTION_POOL_SIZE=1000
 
-REQUESTS_ADAPTER_OPTIONS = dict(pool_connections=CONNECTION_POOL_SIZE, pool_maxsize=CONNECTION_POOL_SIZE, max_retries=Retry(3, backoff_factor=0.1, raise_on_status=False, status_forcelist=RETRY_STATUS_CODES))
+REQUESTS_ADAPTER_OPTIONS = dict(pool_connections=CONNECTION_POOL_COUNT, pool_maxsize=CONNECTION_POOL_SIZE, max_retries=Retry(3, backoff_factor=0.1, raise_on_status=False, status_forcelist=RETRY_STATUS_CODES))
 REQUESTS_TIMEOUTS = (3, 30)
 
 
