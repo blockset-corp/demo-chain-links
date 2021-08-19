@@ -130,23 +130,23 @@ class ChainBlockFetch(models.Model):
     @property
     def error_message(self):
         if self.canonical_http_status not in GOOD_STATUS_CODES:
-            return f'Failed to get canonical block (status is {self.canonical_http_status})'
+            return f'canonical block retrieval failure ({self.canonical_http_status})'
 
         if self.service_http_status not in GOOD_STATUS_CODES:
-            return f'Failed to get service block (status is {self.service_http_status})'
+            return f'service block retrieval failure ({self.service_http_status})'
 
         reasons = list()
 
         if self.canonical_block_hash != self.service_block_hash:
-            reasons.append(f'block hash mismatch ({self.service_block_hash} instead of {self.canonical_block_hash})')
+            reasons.append(f'block hash mismatch ({self.service_block_hash})')
 
         if self.canonical_prev_hash != self.service_prev_hash:
-            reasons.append(f'previous hash mismatch ({self.service_prev_hash} instead of {self.canonical_prev_hash})')
+            reasons.append(f'previous hash mismatch ({self.service_prev_hash})')
 
         if self.canonical_txn_count != self.service_txn_count:
-            reasons.append(f'transaction count mismatch ({self.service_txn_count} instead of {self.canonical_txn_count})')
+            reasons.append(f'transaction count mismatch ({self.service_txn_count} vs {self.canonical_txn_count})')
 
-        return 'Failed with ' + ','.join(reasons) if reasons else ''
+        return ', '.join(reasons) if reasons else ''
 
 
     def __str__(self):

@@ -72,8 +72,8 @@
                     <tr>
                         <td>{{ error.completed|timesince }} ago</td>
                         <td>{{ error.block_height }}</td>
-                        <td>{{ error.status_message | truncatechars:85 }}</td>
-                        <td>{{ error.fetch.error_message | truncatechars:85 }}</td>
+                        <td>{{ error.status_message | truncatechars:120 }}</td>
+                        <td>{{ error.fetch.error_message | truncatechars:120 }}</td>
                     </tr>
                 {% endfor %}
                 </tbody>
