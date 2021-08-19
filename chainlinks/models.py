@@ -20,7 +20,7 @@ BLOCKCHAIN_IDS = (
     (BLOCKCHAIN_ID_BITCOINCASH_MAINNET, 'Bitcoin Cash Mainnet'),
     (BLOCKCHAIN_ID_BITCOINCASH_TESTNET, 'Bitcoin Cash Testnet'),
     (BLOCKCHAIN_ID_BITCOINSV_MAINNET, 'Bitcoin SV Mainnet'),
-    (BLOCKCHAIN_ID_DOGECOIN_MAINNET, 'Dogecon Mainnet'),
+    (BLOCKCHAIN_ID_DOGECOIN_MAINNET, 'Dogecoin Mainnet'),
     (BLOCKCHAIN_ID_LITECOIN_MAINNET, 'Litecoin Mainnet'),
     (BLOCKCHAIN_ID_HEDERA_MAINNET, 'Hedera Mainnet'),
     (BLOCKCHAIN_ID_RIPPLE_MAINNET, 'Ripple Mainnet'),

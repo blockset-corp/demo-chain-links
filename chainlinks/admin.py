@@ -5,7 +5,7 @@ from chainlinks.models import ChainJob, ChainBlock
 
 class ChainBlockAdmin(admin.ModelAdmin):
     list_display = ('blockchain_id', 'service_id', 'block_height', 'status', 'scheduled', 'completed')
-    ordering = ('job__service_id', 'job__blockchain_id')
+    ordering = ('job__service_id', 'job__blockchain_id', '-block_height')
     list_filter = ('job__service_id', 'job__blockchain_id', 'status')
 
     def blockchain_id(self, obj):
