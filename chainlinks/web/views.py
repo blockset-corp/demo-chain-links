@@ -5,6 +5,7 @@ from typing import Iterable
 
 from django.core.cache import cache
 from django.core.paginator import Paginator
+from django.db.models.functions import Collate
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.cache import cache_page
@@ -39,7 +40,7 @@ class ServiceChainView:
         )
 
     def view_get_all(self, request):
-        jobs = [job for job in ChainJob.objects.all().order_by('service_id', 'blockchain_id')]
+        jobs = [job for job in ChainJob.objects.all().order_by('service_id', Collate('blockchain_id', 'C'))]
         return render(
             request,
             'chainlinks.html',
