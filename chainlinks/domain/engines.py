@@ -23,12 +23,17 @@ logger = logging.getLogger('chainlinks.domain.engines')
 
 class ChainCheckAllEngine:
 
-    def __init__(self, check_scheduler: Any) -> None:
+    def __init__(self, check_scheduler: Any, retention_timedelta: timedelta) -> None:
         self.check_scheduler = check_scheduler
+        self.retention_timedelta = retention_timedelta
 
     def check_all_chains(self):
         for job in ChainJob.objects.find_all_active():
             self.check_scheduler(args=(job.pk,))
+
+    def clean_all_chains(self):
+        now = timezone.now()
+        ChainBlockFetch.objects.delete_superceded_fetches(now - self.retention_timedelta)
 
 
 class ChainCheckEngine:

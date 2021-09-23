@@ -123,3 +123,20 @@ class ChainBlockQuerySet(models.QuerySet):
             block_height__lte=end_inclusive,
         ).order_by('-block_height').only('block_height').first()
         return res.block_height if res else None
+
+
+class ChainBlockFetchQuerySet(models.QuerySet):
+
+    @property
+    def table_name(self):
+        return self.model._meta.db_table
+
+    def delete_superceded_fetches(self, cutoff: datetime):
+        with connection.cursor() as cursor:
+            cursor.execute(f'''
+                DELETE FROM {self.table_name}
+                    USING {self.table_name} AS f LEFT OUTER JOIN chainlinks_chainblock AS b ONf.id = b.fetch_id
+                WHERE
+                    {self.table_name}.id = f.id AND
+                    f.created < %s AND
+                    b.fetch_id is null''', [cutoff])
