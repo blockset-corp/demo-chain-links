@@ -40,7 +40,7 @@ class ServiceChainView:
         )
 
     def view_get_all(self, request):
-        jobs = [job for job in ChainJob.objects.all().order_by('service_id', Collate('blockchain_id', 'C'))]
+        jobs = [job for job in ChainJob.objects.find_all_visible().order_by('service_id', Collate('blockchain_id', 'C'))]
         return render(
             request,
             'chainlinks.html',

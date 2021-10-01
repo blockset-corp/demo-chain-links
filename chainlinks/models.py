@@ -6,7 +6,7 @@ from django.core.validators import MinValueValidator
 from django.utils import timezone
 
 from chainlinks.common.constants import *
-from chainlinks.data.querysets import ChainJobQuerySet, ChainBlockQuerySet
+from chainlinks.data.querysets import ChainJobQuerySet, ChainBlockQuerySet, ChainBlockFetchQuerySet
 
 
 MAX_LEN_SERVICE_ID = 32
@@ -53,6 +53,7 @@ class ChainJob(models.Model):
 
     # job parameters
     enabled = models.BooleanField()
+    visible = models.BooleanField()
     service_id = models.CharField(max_length=MAX_LEN_SERVICE_ID, choices=SERVICE_IDS)
     blockchain_id = models.CharField(choices=BLOCKCHAIN_IDS, max_length=MAX_LEN_BLOCKCHAIN_ID)
 
@@ -126,6 +127,8 @@ class ChainBlockFetch(models.Model):
     service_block_hash = models.CharField(max_length=MAX_LEN_BLOCK_HASH)
     service_prev_hash = models.CharField(max_length=MAX_LEN_BLOCK_HASH)
     service_txn_count = models.IntegerField()
+
+    objects =  ChainBlockFetchQuerySet.as_manager()
 
     @property
     def error_message(self):

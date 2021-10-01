@@ -13,6 +13,9 @@ class ChainJobQuerySet(models.QuerySet):
     def find_all_active(self):
         return self.filter(enabled=True)
 
+    def find_all_visible(self):
+        return self.filter(visible=True)
+
 
 class ChainBlockQuerySet(models.QuerySet):
 
