@@ -49,8 +49,7 @@ class ChainBlockQuerySet(models.QuerySet):
 
     def find_all_gaps(self, job_pk: Any, start_inclusive: int, end_inclusive: int):
         # get the min and max block we have tracked
-        min_block_height = self.find_min_block_height(job_pk, start_inclusive, end_inclusive)
-        max_block_height = self.find_max_block_height(job_pk, start_inclusive, end_inclusive)
+        min_block_height, max_block_height, counts = self.find_block_height_aggregates(job_pk, start_inclusive, end_inclusive)
 
         # special case for the whole thing being a gap
         if min_block_height is None or max_block_height is None:
@@ -65,18 +64,20 @@ class ChainBlockQuerySet(models.QuerySet):
             if end_inclusive != max_block_height:
                 yield (max_block_height + 1, end_inclusive)
 
-            # find actual gaps
-            with connection.cursor() as cursor:
-                cursor.execute(f'''
-                    SELECT block_height + 1 AS gap_start, next_block_height - 1 AS gap_end
-                    FROM (
-                        SELECT block_height, LEAD(block_height) over (order by block_height asc) AS next_block_height
-                        FROM {self.table_name} WHERE job_id = %s AND block_height >= %s AND block_height < %s
-                    ) nh
-                    WHERE block_height + 1 <> next_block_height;
-                ''', [job_pk, start_inclusive, end_inclusive])
-                for gap_start, gap_end in cursor:
-                    yield (gap_start, gap_end)
+            # use counts to check if we have any gaps
+            if counts != (max_block_height - min_block_height + 1):
+                # find actual gaps
+                with connection.cursor() as cursor:
+                    cursor.execute(f'''
+                        SELECT block_height + 1 AS gap_start, next_block_height - 1 AS gap_end
+                        FROM (
+                            SELECT block_height, LEAD(block_height) over (order by block_height asc) AS next_block_height
+                            FROM {self.table_name} WHERE job_id = %s AND block_height >= %s AND block_height < %s
+                        ) nh
+                        WHERE block_height + 1 <> next_block_height;
+                    ''', [job_pk, start_inclusive, end_inclusive])
+                    for gap_start, gap_end in cursor:
+                        yield (gap_start, gap_end)
 
     def find_all_gap_heights(self, job_pk: Any, start_inclusive: int, end_inclusive: int, limit: int):
         def _find_all_gap_heights():
@@ -126,6 +127,18 @@ class ChainBlockQuerySet(models.QuerySet):
             block_height__lte=end_inclusive,
         ).order_by('-block_height').only('block_height').first()
         return res.block_height if res else None
+
+    def find_block_height_aggregates(self, job_pk: Any, start_inclusive: int, end_inclusive: int):
+        res = self.filter(
+            job=job_pk,
+            block_height__gte=start_inclusive,
+            block_height__lte=end_inclusive,
+        ).aggregate(
+            models.Min('block_height'),
+            models.Max('block_height'),
+            models.Count('block_height')
+        )
+        return (res['block_height__min'], res['block_height__max'], res['block_height__count'])
 
 
 class ChainBlockFetchQuerySet(models.QuerySet):
