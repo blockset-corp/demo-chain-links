@@ -46,7 +46,7 @@ class ServiceChainView:
             'chainlinks.html',
             {
                 'detail_view': False,
-                'include_all_blocks': 'include_all_blocks' in request.GET and request.GET['include_all_blocks'].lower() in ('true, yes'),
+                'include_all_blocks': 'include_all_blocks' not in request.GET or request.GET['include_all_blocks'].lower() not in ('false, no'),
             } | self._to_service_chains_context(jobs)
         )
 
