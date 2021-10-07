@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, List
 
 from django.utils import timezone
 from gevent import spawn
@@ -74,19 +74,13 @@ class ChainCheckEngine:
 
         # Find heights that have not completed and are candidates for requeueing
 
-        requeue_blocks = [x for x in ChainBlock.objects.find_all_pending_blocks(job_pk, start_height, final_height, inflight_capacity, now - self.requeue_timedelta)]
-        logger.info(f'Found requeue_count={len(requeue_blocks)} for job_id={job_pk} and blockchain_id={blockchain_id}')
-
-        ChainBlock.objects.bulk_update([self.reset_chain_check_block(
-            now, block
-        ) for block in requeue_blocks], fields=('status', 'scheduled', 'completed', 'fetch'))
-
-        for block in requeue_blocks:
-            logger.info(f'Queueing height={block.block_height} for job_id={job_pk} and blockchain_id={blockchain_id} due to expiry')
-            self.block_scheduler(args=(job.pk, block.pk, blockchain_id, block.block_height, service_id))
+        expired_blocks = [x for x in ChainBlock.objects.find_all_pending_blocks(job_pk, start_height, final_height, inflight_capacity, now - self.requeue_timedelta)]
+        logger.info(f'Found requeue_count={len(expired_blocks)} for job_id={job_pk} and blockchain_id={blockchain_id}')
+        self._reschedule_blocks(now, job_pk, blockchain_id, service_id, 'expiry', expired_blocks)
 
         # Check if there is room to continue on
-        inflight_capacity = max(0, inflight_capacity - len(requeue_blocks))
+
+        inflight_capacity = max(0, inflight_capacity - len(expired_blocks))
         if inflight_capacity == 0:
             return
 
@@ -94,17 +88,11 @@ class ChainCheckEngine:
 
         missing_heights = [x for x in ChainBlock.objects.find_all_gap_heights(job_pk, start_height, final_height, inflight_capacity)]
         logger.info(f'Found gap_count={len(missing_heights)} for job_id={job_pk} and blockchain_id={blockchain_id}')
-
-        missing_blocks = ChainBlock.objects.bulk_create([self.create_chain_check_block(
-            now, job, height
-        ) for height in missing_heights])
-
-        for block in missing_blocks:
-            logger.info(f'Queueing height={block.block_height} for job_id={job_pk} and blockchain_id={blockchain_id} due to gap')
-            self.block_scheduler(args=(job.pk, block.pk, blockchain_id, block.block_height, service_id))
+        self._schedule_blocks(now, job_pk, blockchain_id, service_id, 'gap', missing_heights)
 
         # Check if there is room to continue on
-        inflight_capacity = max(0, inflight_capacity - len(missing_blocks))
+
+        inflight_capacity = max(0, inflight_capacity - len(missing_heights))
         if inflight_capacity == 0:
             return
 
@@ -112,14 +100,7 @@ class ChainCheckEngine:
 
         unsuccessful_blocks = [x for x in ChainBlock.objects.find_all_unsuccessful_blocks(job_pk, start_height, final_height, inflight_capacity, now - self.retry_timedelta)]
         logger.info(f'Found retry_count={len(unsuccessful_blocks)} for job_id={job_pk} and blockchain_id={blockchain_id}')
-
-        ChainBlock.objects.bulk_update([self.reset_chain_check_block(
-            now, height
-        ) for height in unsuccessful_blocks], fields=('status', 'scheduled', 'completed', 'fetch'))
-
-        for block in unsuccessful_blocks:
-            logger.info(f'Queueing height={block.block_height} for job_id={job_pk} and blockchain_id={blockchain_id} due to retry')
-            self.block_scheduler(args=(job.pk, block.pk, blockchain_id, block.block_height, service_id))
+        self._reschedule_blocks(now, job_pk, blockchain_id, service_id, 'retry', unsuccessful_blocks)
 
     def check_block(self, job_pk: Any, block_pk: Any, blockchain_id: str, block_height: int, service_id: str):
         canonical_chainsource = get_chainsource(SERVICE_ID_CANONICAL, blockchain_id)
@@ -132,7 +113,7 @@ class ChainCheckEngine:
         canonical_block = canonical_block_greenlet.get()
 
         # compare the blocks
-        status = self.compare_blocks(canonical_block, service_block)
+        status = self._compare_blocks(canonical_block, service_block)
         completed = timezone.now()
 
         # create a record of our fetch
@@ -160,13 +141,31 @@ class ChainCheckEngine:
 
         # report to Sentry on failure
         if RESULT_STATUS_GOOD != status:
-            self.report_error(blockchain_id, block_height, service_id, status, fetch)
+            self._report_error(blockchain_id, block_height, service_id, status, fetch)
 
         return block_pk
 
-    def create_chain_check_block(self, now: datetime, job: int, block_height: int):
+    def _schedule_blocks(self, now: datetime, job_pk: int, blockchain_id: str, service_id: str, reason: str, heights: List[int]):
+        blocks = ChainBlock.objects.bulk_create([self._create_chain_check_block(
+            now, job_pk, height
+        ) for height in heights])
+
+        for block in blocks:
+            logger.info(f'Queueing height={block.block_height} for job_id={job_pk} and blockchain_id={blockchain_id} due to {reason}')
+            self.block_scheduler(args=(job_pk, block.pk, blockchain_id, block.block_height, service_id))
+
+    def _reschedule_blocks(self, now: datetime, job_pk: int, blockchain_id: str, service_id: str, reason: str, blocks: List[ChainBlock]):
+        ChainBlock.objects.bulk_update([self._reset_chain_check_block(
+            now, height
+        ) for height in blocks], fields=('status', 'scheduled', 'completed', 'fetch'))
+
+        for block in blocks:
+            logger.info(f'Queueing height={block.block_height} for job_id={job_pk} and blockchain_id={blockchain_id} due to {reason}')
+            self.block_scheduler(args=(job_pk, block.pk, blockchain_id, block.block_height, service_id))
+
+    def _create_chain_check_block(self, now: datetime, job_pk: int, block_height: int):
         return ChainBlock(
-            job=job,
+            job_id=job_pk,
             scheduled=now,
             block_height=block_height,
             status = RESULT_STATUS_PEND,
@@ -174,14 +173,14 @@ class ChainCheckEngine:
             fetch = None
         )
 
-    def reset_chain_check_block(self, now: datetime, block: ChainBlock):
+    def _reset_chain_check_block(self, now: datetime, block: ChainBlock):
         block.scheduled = now
         block.status = RESULT_STATUS_PEND
         block.completed = datetime.utcfromtimestamp(0).replace(tzinfo=timezone.utc)
         block.fetch = None
         return block
 
-    def compare_blocks(self, canonical_block: Block, service_block: Block):
+    def _compare_blocks(self, canonical_block: Block, service_block: Block):
         return RESULT_STATUS_FAIL if (
             canonical_block.status not in GOOD_STATUS_CODES
         ) else RESULT_STATUS_BAD if (
@@ -192,7 +191,7 @@ class ChainCheckEngine:
             canonical_block.txn_count != service_block.txn_count
         ) else RESULT_STATUS_GOOD
 
-    def report_error(self, blockchain_id: str, block_height: int, service_id: str, status: str, fetch: ChainBlockFetch):
+    def _report_error(self, blockchain_id: str, block_height: int, service_id: str, status: str, fetch: ChainBlockFetch):
         with push_scope() as sentry_scope:
             sentry_scope.set_tag('job_id', fetch.job_id)
             sentry_scope.set_tag('block_id', fetch.block_id)
