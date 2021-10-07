@@ -105,8 +105,7 @@ class ServiceChainMatrixJsonView:
         # compute the count of blocks in each step
         range_data = collections.defaultdict(dict)
         self._initialize_range_data(range_coords, start_height, final_height, range_start, range_stride, range_step, range_data)
-        self._populate_status_ranges(job, start_height, final_height, range_start, range_stride, range_step, range_data)
-        self._populate_missing_ranges(range_coords, range_data)
+        self._populate_range_data(job, range_coords, start_height, final_height, range_start, range_stride, range_step, range_data)
 
         # prepare chartjs labels and data
         return JsonResponse({
@@ -146,15 +145,16 @@ class ServiceChainMatrixJsonView:
             else:
                 range_data[y][x] = {'total': 0, 'start': 0, 'end': 0} | status_dict
 
-    def _populate_status_ranges(self, job, start_height, end_height, range_start, range_stride, range_step, range_data):
-        # TODO(fix): Evaluate using islands approach here...
+    def _populate_range_data(self, job, range_coords, start_height, end_height, range_start, range_stride, range_step, range_data):
+        self._populate_with_status_islands(job, range_coords, start_height, end_height, range_start, range_stride, range_step, range_data)
+
+    def _populate_with_status_ranges(self, job, range_coords, start_height, end_height, range_start, range_stride, range_step, range_data):
         status_ranges = ChainBlock.objects.find_status_counts_in_ranges(job.pk, start_height, end_height, range_step)
         for status, height, count in status_ranges:
             y = math.floor((height - range_start) / range_stride)
             x = math.floor((height - range_start) % range_stride / range_step)
             range_data[y][x][f'status_{status}'] += count
 
-    def _populate_missing_ranges(self, range_coords, range_data):
         for x, y in range_coords:
             total = range_data[y][x]['total']
             pend = range_data[y][x][f'status_{RESULT_STATUS_PEND}']
@@ -162,6 +162,23 @@ class ServiceChainMatrixJsonView:
             bad = range_data[y][x][f'status_{RESULT_STATUS_BAD}']
             fail = range_data[y][x][f'status_{RESULT_STATUS_FAIL}']
             range_data[y][x]['missing'] = total - (pend + good + bad + fail)
+
+    def _populate_with_status_islands(self, job, range_coords, start_height, end_height, range_start, range_stride, range_step, range_data):
+        islands = ChainBlock.objects.find_all_islands(job.pk, start_height, end_height, [RESULT_STATUS_PEND, RESULT_STATUS_BAD, RESULT_STATUS_FAIL])
+        for status, island_start, island_end in islands:
+            for height in range(island_start, island_end + 1, range_step):
+                height = math.floor(height  / range_step) * range_step
+                count = min(height + range_step, island_end) - max(height, island_start) + 1
+                y = math.floor((height - range_start) / range_stride)
+                x = math.floor((height - range_start) % range_stride / range_step)
+                range_data[y][x][f'status_{status}'] += count
+
+        for x, y in range_coords:
+            total = range_data[y][x]['total']
+            pend = range_data[y][x][f'status_{RESULT_STATUS_PEND}']
+            bad = range_data[y][x][f'status_{RESULT_STATUS_BAD}']
+            fail = range_data[y][x][f'status_{RESULT_STATUS_FAIL}']
+            range_data[y][x][f'status_{RESULT_STATUS_GOOD}'] = total - (pend + bad + fail)
 
     def _to_x_label(self, value, step):
         return f'+{value:,} to {(value + step - 1):,}'
