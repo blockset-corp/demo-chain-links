@@ -47,6 +47,10 @@ class ChainBlockQuerySet(models.QuerySet):
             for (status, island_start, island_end) in cursor:
                 yield (status, island_start, island_end)
 
+    def has_holes(self, job_pk: Any, start_inclusive: int, end_inclusive: int):
+        min_block_height, max_block_height, counts = self.find_block_height_aggregates(job_pk, start_inclusive, end_inclusive)
+        return min_block_height is not None and max_block_height is not None and counts != (max_block_height - min_block_height + 1)
+
     def find_all_gaps(self, job_pk: Any, start_inclusive: int, end_inclusive: int):
         # get the min and max block we have tracked
         min_block_height, max_block_height, counts = self.find_block_height_aggregates(job_pk, start_inclusive, end_inclusive)

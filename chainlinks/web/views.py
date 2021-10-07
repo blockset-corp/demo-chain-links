@@ -146,7 +146,10 @@ class ServiceChainMatrixJsonView:
                 range_data[y][x] = {'total': 0, 'start': 0, 'end': 0} | status_dict
 
     def _populate_range_data(self, job, range_coords, start_height, end_height, range_start, range_stride, range_step, range_data):
-        self._populate_with_status_islands(job, range_coords, start_height, end_height, range_start, range_stride, range_step, range_data)
+        if ChainBlock.objects.has_holes(job.pk, start_height, end_height):
+            self._populate_with_status_ranges(job, range_coords, start_height, end_height, range_start, range_stride, range_step, range_data)
+        else:
+            self._populate_with_status_islands(job, range_coords, start_height, end_height, range_start, range_stride, range_step, range_data)
 
     def _populate_with_status_ranges(self, job, range_coords, start_height, end_height, range_start, range_stride, range_step, range_data):
         status_ranges = ChainBlock.objects.find_status_counts_in_ranges(job.pk, start_height, end_height, range_step)
