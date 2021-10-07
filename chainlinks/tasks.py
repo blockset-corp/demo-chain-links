@@ -41,5 +41,5 @@ def run_check_job(job_pk: Any):
 
 
 @shared_task(queue='consumer', ignore_result=True, expiry=CHAIN_CHECK_JOB_EXPIRY)
-def run_check_height(job_pk: Any, result_pk: Any, blockchain_id: str, block_height: int, service_id: str):
-    check_single_engine.check_block(job_pk, result_pk, blockchain_id, block_height, service_id)
+def run_check_height(job_pk: Any, block_pk: Any, blockchain_id: str, block_height: int, service_id: str):
+    check_single_engine.check_block(job_pk, block_pk, blockchain_id, block_height, service_id)
