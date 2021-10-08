@@ -1,5 +1,4 @@
 from datetime import timedelta
-from typing import Any
 
 from celery import shared_task, signature
 from celery.utils.log import get_task_logger
@@ -36,10 +35,10 @@ def run_all_check_jobs():
 
 
 @shared_task(base=Singleton, ignore_result=True, expiry=CHAIN_CHECK_JOB_EXPIRY, lock_expiry=CHAIN_CHECK_JOB_EXPIRY)
-def run_check_job(job_pk: Any):
+def run_check_job(job_pk: int):
     check_single_engine.check_chain(job_pk)
 
 
 @shared_task(queue='consumer', ignore_result=True, expiry=CHAIN_CHECK_JOB_EXPIRY)
-def run_check_height(job_pk: Any, block_pk: Any, blockchain_id: str, block_height: int, service_id: str):
+def run_check_height(job_pk: int, block_pk: int, blockchain_id: str, block_height: int, service_id: str):
     check_single_engine.check_block(job_pk, block_pk, blockchain_id, block_height, service_id)
