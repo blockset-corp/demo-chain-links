@@ -44,6 +44,7 @@ INTERNAL_IPS = [
 INSTALLED_APPS = [
     'bootstrap4',
     'debug_toolbar',
+    'admin_numeric_filter',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
