@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'bootstrap4',
     'debug_toolbar',
     'admin_numeric_filter',
+    'advanced_filters',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
