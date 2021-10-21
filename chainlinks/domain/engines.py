@@ -61,11 +61,12 @@ class ChainCheckEngine:
 
         # Get the current state of the chain
         current_chain = get_chainsource(SERVICE_ID_CANONICAL, blockchain_id).get_chain()
-        final_height = current_chain.chain_height - finality_depth + 1
+        if current_chain.status not in GOOD_STATUS_CODES:
+            logger.error(f"Chain tip cannot be retrieved for job_id={job_pk} and blockchain_id={blockchain_id}")
+            return
 
-        logger.info(
-            f"State is final_height={final_height} " +
-            f"for job_id={job_pk} and blockchain_id={blockchain_id}")
+        final_height = current_chain.chain_height - finality_depth + 1
+        logger.info(f"State is final_height={final_height} for job_id={job_pk} and blockchain_id={blockchain_id}")
 
         # Get the current inflight requests
         inflight_blocks = ChainBlock.objects.count_pending_blocks(job_pk, start_height, final_height)
