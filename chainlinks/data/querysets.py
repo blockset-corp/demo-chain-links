@@ -155,7 +155,7 @@ class ChainBlockFetchQuerySet(models.QuerySet):
         with connection.cursor() as cursor:
             cursor.execute(f'''
                 DELETE FROM {self.table_name}
-                    USING {self.table_name} AS f LEFT OUTER JOIN chainlinks_chainblock AS b ONf.id = b.fetch_id
+                    USING {self.table_name} AS f LEFT OUTER JOIN chainlinks_chainblock AS b ON f.id = b.fetch_id
                 WHERE
                     {self.table_name}.id = f.id AND
                     f.created < %s AND
