@@ -155,6 +155,8 @@ BLOCKSET_URL = os.environ.get('BLOCKSET_URL', '').strip()
 BLOCKSET_TOKEN = os.environ.get('BLOCKSET_TOKEN', '').strip()
 INFURA_PROJECT_ID = os.environ.get('INFURA_PROJECT_ID', '').strip()
 
+CHECK_FOR_HOLES = os.environ.get('CHECK_FOR_HOLES', '').lower() == 'true'
+
 sentry_sdk.init(
     dsn=os.environ.get('SENTRY_DSN', ''),
     integrations=[DjangoIntegration(), CeleryIntegration()],

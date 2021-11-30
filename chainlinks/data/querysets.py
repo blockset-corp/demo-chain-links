@@ -2,6 +2,7 @@ from datetime import datetime
 import itertools
 from typing import Any, List
 
+from django.conf import settings
 from django.db import connection, models
 
 from chainlinks.common.constants import RESULT_STATUS_PEND, RESULT_STATUS_BAD, RESULT_STATUS_FAIL
@@ -48,12 +49,19 @@ class ChainBlockQuerySet(models.QuerySet):
                 yield (status, island_start, island_end)
 
     def has_holes(self, job_pk: Any, start_inclusive: int, end_inclusive: int):
-        min_block_height, max_block_height, counts = self.find_block_height_aggregates(job_pk, start_inclusive, end_inclusive)
-        return min_block_height is not None and max_block_height is not None and counts != (max_block_height - min_block_height + 1)
+        min_block_height, max_block_height = self.find_block_height_range(job_pk, start_inclusive, end_inclusive)
+
+        if min_block_height is None or max_block_height is None:
+            return True
+
+        if not settings.CHECK_FOR_HOLES:
+            return False
+
+        return self.find_block_height_count(job_pk, min_block_height, max_block_height) != (max_block_height - min_block_height + 1)
 
     def find_all_gaps(self, job_pk: Any, start_inclusive: int, end_inclusive: int):
         # get the min and max block we have tracked
-        min_block_height, max_block_height, counts = self.find_block_height_aggregates(job_pk, start_inclusive, end_inclusive)
+        min_block_height, max_block_height = self.find_block_height_range(job_pk, start_inclusive, end_inclusive)
 
         # special case for the whole thing being a gap
         if min_block_height is None or max_block_height is None:
@@ -69,7 +77,7 @@ class ChainBlockQuerySet(models.QuerySet):
                 yield (max_block_height + 1, end_inclusive)
 
             # use counts to check if we have any gaps
-            if counts != (max_block_height - min_block_height + 1):
+            if self.has_holes(job_pk, min_block_height, max_block_height):
                 # find actual gaps
                 with connection.cursor() as cursor:
                     cursor.execute(f'''
@@ -132,17 +140,26 @@ class ChainBlockQuerySet(models.QuerySet):
         ).order_by('-block_height').only('block_height').first()
         return res.block_height if res else None
 
-    def find_block_height_aggregates(self, job_pk: Any, start_inclusive: int, end_inclusive: int):
+    def find_block_height_range(self, job_pk: Any, start_inclusive: int, end_inclusive: int):
         res = self.filter(
             job=job_pk,
             block_height__gte=start_inclusive,
             block_height__lte=end_inclusive,
         ).aggregate(
             models.Min('block_height'),
-            models.Max('block_height'),
+            models.Max('block_height')
+        )
+        return (res['block_height__min'], res['block_height__max'])
+
+    def find_block_height_count(self, job_pk: Any, start_inclusive: int, end_inclusive: int):
+        res = self.filter(
+            job=job_pk,
+            block_height__gte=start_inclusive,
+            block_height__lte=end_inclusive,
+        ).aggregate(
             models.Count('block_height')
         )
-        return (res['block_height__min'], res['block_height__max'], res['block_height__count'])
+        return res['block_height__count']
 
 
 class ChainBlockFetchQuerySet(models.QuerySet):
